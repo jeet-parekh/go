@@ -56,7 +56,7 @@ func Examples(files ...*ast.File) []*Example {
 				continue
 			}
 			f, ok := decl.(*ast.FuncDecl)
-			if !ok || f.Recv != nil {
+			if !ok {
 				continue
 			}
 			numDecl++
