@@ -7,7 +7,6 @@
 package syscall
 
 import (
-	"errors"
 	"io"
 	"sync"
 	"syscall/js"
@@ -21,12 +20,14 @@ var jsFS = js.Global().Get("fs")
 var constants = jsFS.Get("constants")
 
 var (
-	nodeWRONLY = constants.Get("O_WRONLY").Int()
-	nodeRDWR   = constants.Get("O_RDWR").Int()
-	nodeCREATE = constants.Get("O_CREAT").Int()
-	nodeTRUNC  = constants.Get("O_TRUNC").Int()
-	nodeAPPEND = constants.Get("O_APPEND").Int()
-	nodeEXCL   = constants.Get("O_EXCL").Int()
+	nodeWRONLY   = constants.Get("O_WRONLY").Int()
+	nodeRDWR     = constants.Get("O_RDWR").Int()
+	nodeCREATE   = constants.Get("O_CREAT").Int()
+	nodeTRUNC    = constants.Get("O_TRUNC").Int()
+	nodeAPPEND   = constants.Get("O_APPEND").Int()
+	nodeEXCL     = constants.Get("O_EXCL").Int()
+	nodeNONBLOCK = constants.Get("O_NONBLOCK").Int()
+	nodeSYNC     = constants.Get("O_SYNC").Int()
 )
 
 type jsFile struct {
@@ -77,8 +78,11 @@ func Open(path string, openmode int, perm uint32) (int, error) {
 	if openmode&O_EXCL != 0 {
 		flags |= nodeEXCL
 	}
+	if openmode&O_NONBLOCK != 0 {
+		flags |= nodeNONBLOCK
+	}
 	if openmode&O_SYNC != 0 {
-		return 0, errors.New("syscall.Open: O_SYNC is not supported by js/wasm")
+		flags |= nodeSYNC
 	}
 
 	jsFD, err := fsCall("openSync", path, flags, perm)
