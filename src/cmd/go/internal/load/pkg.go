@@ -961,8 +961,6 @@ func disallowInternal(srcDir string, p *Package, stk *ImportStack) *Package {
 	if i > 0 {
 		i-- // rewind over slash in ".../internal"
 	}
-
-	var where string
 	if p.Module == nil {
 		parent := p.Dir[:i+len(p.Dir)-len(p.ImportPath)]
 
@@ -980,18 +978,19 @@ func disallowInternal(srcDir string, p *Package, stk *ImportStack) *Package {
 		// p is in a module, so make it available based on the import path instead
 		// of the file path (https://golang.org/issue/23970).
 		parent := p.ImportPath[:i]
-		importer := (*stk)[len(*stk)-2]
-		if str.HasPathPrefix(importer, parent) {
+		// TODO(bcmills): In case of replacements, use the module path declared by
+		// the replacement module, not the path seen by the user.
+		importerPath := (*stk)[len(*stk)-2]
+		if strings.HasPrefix(importerPath, parent) {
 			return p
 		}
-		where = " in " + importer
 	}
 
 	// Internal is present, and srcDir is outside parent's tree. Not allowed.
 	perr := *p
 	perr.Error = &PackageError{
 		ImportStack: stk.Copy(),
-		Err:         "use of internal package " + p.ImportPath + " not allowed" + where,
+		Err:         "use of internal package " + p.ImportPath + " not allowed",
 	}
 	perr.Incomplete = true
 	return &perr
@@ -1026,29 +1025,6 @@ func disallowVendor(srcDir, path string, p *Package, stk *ImportStack) *Package 
 	// import. Anything listed on the command line is fine.
 	if len(*stk) == 1 {
 		return p
-	}
-
-	if p.Standard && ModPackageModuleInfo != nil {
-		// Modules must not import vendor packages in the standard library,
-		// but the usual vendor visibility check will not catch them
-		// because the module loader presents them with an ImportPath starting
-		// with "golang_org/" instead of "vendor/".
-		importer := (*stk)[len(*stk)-2]
-		if mod := ModPackageModuleInfo(importer); mod != nil {
-			dir := p.Dir
-			if relDir, err := filepath.Rel(p.Root, p.Dir); err == nil {
-				dir = relDir
-			}
-			if _, ok := FindVendor(filepath.ToSlash(dir)); ok {
-				perr := *p
-				perr.Error = &PackageError{
-					ImportStack: stk.Copy(),
-					Err:         "use of vendored package " + path + " not allowed",
-				}
-				perr.Incomplete = true
-				return &perr
-			}
-		}
 	}
 
 	if perr := disallowVendorVisibility(srcDir, p, stk); perr != p {
